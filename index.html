@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campus Wallet - Offline Student Expense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <rect x="2" y="4" width="20" height="16" rx="3"></rect>
+          <path d="M2 10h20"></path>
+          <circle cx="16" cy="15" r="1.5" fill="currentColor"></circle>
+        </svg>
+        <div>
+          <h1>Campus Wallet</h1>
+          <p class="subtitle">Offline student expense &amp; budget manager</p>
+        </div>
+      </div>
+      <div id="live-announcer" class="sr-only" role="status" aria-live="polite"></div>
+    </header>
+
+    <!-- Persistent Storage Warning Banner (Never hidden by toast messages) -->
+    <div id="persistent-storage-banner" class="banner banner-error hidden" role="alert"></div>
+
+    <!-- Transient Toast Notification & Undo Prompt -->
+    <div id="toast-banner" class="toast-banner hidden" role="status" aria-live="polite">
+      <span id="toast-message" class="toast-text"></span>
+      <button type="button" id="toast-undo-btn" class="btn btn-undo hidden">Undo</button>
+    </div>
+
+    <main class="dashboard-grid">
+      <!-- Section: Budget & Summary Overview -->
+      <section class="card summary-card" aria-labelledby="summary-heading">
+        <div class="card-header">
+          <h2 id="summary-heading">Monthly Overview</h2>
+          <div class="header-controls">
+            <label for="active-month-select" class="sr-only">Select Month</label>
+            <input type="month" id="active-month-select" aria-label="Select budget month">
+            <button type="button" id="export-csv-btn" class="btn btn-outline" title="Export this month to CSV">Export CSV</button>
+          </div>
+        </div>
+
+        <!-- Monthly Spending Insight -->
+        <div id="monthly-insight" class="monthly-insight" aria-live="polite">
+          <span class="insight-icon" aria-hidden="true">💡</span>
+          <span id="insight-text" class="insight-text">No expenses logged for this month yet.</span>
+        </div>
+
+        <div class="budget-control">
+          <form id="budget-form" class="budget-form">
+            <label for="monthly-budget-input">Monthly Budget (₹)</label>
+            <div class="input-with-button">
+              <input type="number" id="monthly-budget-input" step="0.01" min="0" placeholder="0.00" required>
+              <button type="submit" class="btn btn-secondary">Set</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Budget Progress Meter -->
+        <div class="budget-meter-wrap" aria-labelledby="meter-label">
+          <div class="meter-text-row">
+            <span id="meter-label" class="meter-label">Budget Usage</span>
+            <span id="meter-percentage" class="meter-percentage">0%</span>
+          </div>
+          <div class="meter-track" role="progressbar" id="budget-progress-track" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="meter-label">
+            <div id="budget-progress-bar" class="meter-fill" style="width: 0%;"></div>
+          </div>
+          <div id="budget-alert-hint" class="meter-hint">Set a budget to track spending limit.</div>
+        </div>
+
+        <!-- Summary Stats Cards -->
+        <div class="stats-row">
+          <div class="stat-box">
+            <span class="stat-label">Total Spent</span>
+            <span class="stat-value" id="total-spent-display">₹0.00</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Budget</span>
+            <span class="stat-value" id="budget-amount-display">₹0.00</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Remaining</span>
+            <span class="stat-value" id="remaining-budget-display">₹0.00</span>
+          </div>
+        </div>
+
+        <!-- Visual Segmented Category Breakdown Bar -->
+        <div class="categories-summary" aria-labelledby="cat-summary-heading">
+          <div class="cat-summary-header">
+            <h3 id="cat-summary-heading">Category Spending</h3>
+            <span id="cat-spend-count" class="cat-subtext">0 expenses</span>
+          </div>
+
+          <div class="category-segmented-bar" id="category-segmented-bar" aria-hidden="true">
+            <div class="seg-food" id="seg-food" style="width: 0%;"></div>
+            <div class="seg-transport" id="seg-transport" style="width: 0%;"></div>
+            <div class="seg-study" id="seg-study" style="width: 0%;"></div>
+            <div class="seg-other" id="seg-other" style="width: 0%;"></div>
+          </div>
+
+          <div class="category-grid">
+            <div class="cat-card cat-food-box">
+              <div class="cat-card-header">
+                <span class="cat-indicator cat-food"></span>
+                <span class="cat-name">Food</span>
+                <span class="cat-percent" id="cat-pct-food">0%</span>
+              </div>
+              <div class="cat-amount" id="cat-total-food">₹0.00</div>
+            </div>
+
+            <div class="cat-card cat-transport-box">
+              <div class="cat-card-header">
+                <span class="cat-indicator cat-transport"></span>
+                <span class="cat-name">Transport</span>
+                <span class="cat-percent" id="cat-pct-transport">0%</span>
+              </div>
+              <div class="cat-amount" id="cat-total-transport">₹0.00</div>
+            </div>
+
+            <div class="cat-card cat-study-box">
+              <div class="cat-card-header">
+                <span class="cat-indicator cat-study"></span>
+                <span class="cat-name">Study</span>
+                <span class="cat-percent" id="cat-pct-study">0%</span>
+              </div>
+              <div class="cat-amount" id="cat-total-study">₹0.00</div>
+            </div>
+
+            <div class="cat-card cat-other-box">
+              <div class="cat-card-header">
+                <span class="cat-indicator cat-other"></span>
+                <span class="cat-name">Other</span>
+                <span class="cat-percent" id="cat-pct-other">0%</span>
+              </div>
+              <div class="cat-amount" id="cat-total-other">₹0.00</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section: Add / Edit Expense Form -->
+      <section class="card form-card" aria-labelledby="form-heading">
+        <div class="form-title-row">
+          <h2 id="form-heading">Add Expense</h2>
+          <span id="form-mode-badge" class="badge-mode hidden">Editing</span>
+        </div>
+
+        <form id="expense-form" novalidate>
+          <input type="hidden" id="editing-expense-id" value="">
+
+          <div class="form-group">
+            <label for="expense-desc">Description</label>
+            <input type="text" id="expense-desc" name="desc" maxlength="80" placeholder="e.g., Canteen Lunch" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="expense-amount">Amount (INR)</label>
+              <input type="number" id="expense-amount" name="amount" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label for="expense-date">Date</label>
+              <input type="date" id="expense-date" name="date" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="expense-category">Category</label>
+            <select id="expense-category" name="category" required>
+              <option value="Food">Food</option>
+              <option value="Transport">Transport</option>
+              <option value="Study">Study</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" id="form-submit-btn" class="btn btn-primary full-width">Add Expense</button>
+            <button type="button" id="form-cancel-btn" class="btn btn-secondary hidden full-width">Cancel Edit</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Section: Search, Filters & Expense History -->
+      <section class="card list-card" aria-labelledby="history-heading">
+        <div class="list-header">
+          <h2 id="history-heading">Expense History</h2>
+          <div class="filters-bar">
+            <!-- Description Search -->
+            <div class="search-box">
+              <label for="search-input" class="sr-only">Search Description</label>
+              <input type="text" id="search-input" placeholder="Search description..." maxlength="80">
+              <button type="button" id="search-clear-btn" class="btn-clear hidden" aria-label="Clear search">✕</button>
+            </div>
+
+            <!-- Category Filter -->
+            <div class="filter-item">
+              <label for="filter-category" class="sr-only">Filter Category</label>
+              <select id="filter-category">
+                <option value="ALL">All Categories</option>
+                <option value="Food">Food</option>
+                <option value="Transport">Transport</option>
+                <option value="Study">Study</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-illustration" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="24" cy="24" r="20" stroke-dasharray="4 4"></circle>
+              <path d="M16 20h16M16 28h10"></path>
+            </svg>
+          </div>
+          <p id="empty-state-text" class="empty-text">No expenses found for this month.</p>
+        </div>
+
+        <ul id="expense-list" class="expense-list" aria-live="polite"></ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
